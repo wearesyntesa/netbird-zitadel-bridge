@@ -9,8 +9,7 @@ import json
 import logging
 import os
 import sys
-import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
@@ -97,18 +96,22 @@ def maybe_rotate_token(cfg: dict, config_path: str) -> str:
         log.error("Failed to list NetBird tokens: %s", e)
         return cfg["netbird"]["service_token"]
 
-    # Find our service token
+    stored_token_id = cfg["netbird"].get("service_token_id")
     token_name = cfg["netbird"]["service_token_name"]
     current_id = None
     current_expiry = None
     for t in tokens:
-        if t["name"] == token_name:
+        if stored_token_id and t["id"] == stored_token_id:
+            current_id = t["id"]
+            current_expiry = t["expiration_date"]
+            break
+        if not stored_token_id and t["name"] == token_name:
             current_id = t["id"]
             current_expiry = t["expiration_date"]
             break
 
     if not current_id:
-        log.warning("Service token '%s' not found in NetBird — skipping rotation check", token_name)
+        log.warning("Service token not found in NetBird — skipping rotation check")
         return cfg["netbird"]["service_token"]
 
     expiry_dt = datetime.fromisoformat(current_expiry.replace("Z", "+00:00"))
@@ -121,13 +124,14 @@ def maybe_rotate_token(cfg: dict, config_path: str) -> str:
         log.info("Token within rotation threshold — rotating...")
         try:
             new_token, new_id, new_expiry = rotate_netbird_token(cfg, admin_token, current_id)
-            # Persist new token back to config file
             cfg["netbird"]["service_token"] = new_token
             with open(config_path) as f:
                 raw = yaml.safe_load(f)
             raw["netbird"]["service_token"] = new_token
-            with open(config_path, "w") as f:
+            tmp_path = config_path + ".tmp"
+            with open(tmp_path, "w") as f:
                 yaml.dump(raw, f, default_flow_style=False, allow_unicode=True)
+            os.replace(tmp_path, config_path)
             log.info("Config updated with new service token.")
             return new_token
         except Exception as e:
@@ -178,20 +182,20 @@ def create_zitadel_user(cfg: dict, nb_user: dict) -> str:
     pat = cfg["zitadel"]["pat"]
 
     name = nb_user.get("name", "").strip()
-    parts = name.split(" ", 1)
-    given = parts[0] if parts else name
-    family = parts[1] if len(parts) > 1 else ""
+    parts = [p.strip() for p in name.split(" ", 1) if p.strip()]
+    given = parts[0] if parts else email.split("@")[0]
+    family = parts[1].strip() if len(parts) > 1 else given
     email = nb_user["email"]
 
     payload = {
         "profile": {
             "givenName": given,
-            "familyName": family if family else given,
+            "familyName": family,
             "displayName": name if name else email,
         },
         "email": {
             "email": email,
-            "isVerified": False,  # Zitadel will send verification email
+            "isVerified": True,
         },
     }
 
@@ -270,7 +274,12 @@ def run_sync(cfg: dict, config_path: str, state_path: str) -> None:
 
         log.info("New user detected: %s (%s)", u.get("name"), email)
         try:
-            zitadel_id = create_zitadel_user(cfg, u)
+            existing_id = _find_zitadel_user_id(cfg, email)
+            if existing_id:
+                log.info("User %s already exists in Zitadel (userId %s) — marking synced, skipping creation", email, existing_id)
+                zitadel_id = existing_id
+            else:
+                zitadel_id = create_zitadel_user(cfg, u)
             synced[email] = {
                 "zitadel_id": zitadel_id,
                 "netbird_id": u["id"],
