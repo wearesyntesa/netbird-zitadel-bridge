@@ -1,0 +1,14 @@
+config.yml
+synced_users.json
+*.json
+
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+.idea/
+.vscode/
+*.swp
+*.swo

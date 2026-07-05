@@ -1,0 +1,30 @@
+netbird:
+  # Base URL of your NetBird management API
+  api_url: "https://vpn.example.com/api"
+
+  # Service user ID (from NetBird dashboard → Users → Service Users)
+  service_user_id: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+  # Name of the service token as it appears in the NetBird dashboard
+  # Used to identify which token to rotate
+  service_token_name: "sso.example.com"
+
+  # Current service user token (read-only access to users)
+  # This value is auto-updated by the bridge when rotation occurs
+  service_token: "nbp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+  # Admin-level token used only for token rotation
+  # Must belong to a user with permission to manage service user tokens
+  # Set to 365-day expiry and rotate manually once a year
+  admin_token: "nbp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+  # Rotate service_token this many days before expiry
+  rotate_days_before: 30
+
+zitadel:
+  # Base URL of your Zitadel instance
+  domain: "https://sso.example.com"
+
+  # Personal Access Token for the netbird-bridge service account in Zitadel
+  # The service account needs Org User Manager role
+  pat: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

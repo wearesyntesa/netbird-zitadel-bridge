@@ -1,0 +1,23 @@
+[Unit]
+Description=NetBird → Zitadel User Sync Bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=netbird-bridge
+Group=netbird-bridge
+Environment=BRIDGE_CONFIG=/etc/netbird-zitadel-bridge/config.yml
+Environment=BRIDGE_STATE=/var/lib/netbird-zitadel-bridge/synced_users.json
+ExecStart=/usr/local/bin/netbird-zitadel-bridge
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=netbird-zitadel-bridge
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/netbird-zitadel-bridge /etc/netbird-zitadel-bridge
+
+[Install]
+WantedBy=multi-user.target
